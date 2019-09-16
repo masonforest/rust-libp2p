@@ -99,6 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         };
 
         if let Some(peer) = std::env::args().nth(2) {
+            println!("adding node to parital view");
             behaviour.floodsub.add_node_to_partial_view(peer.parse().unwrap());
         };
         behaviour.floodsub.subscribe(floodsub_topic.clone());
@@ -121,13 +122,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Kick it off
     let mut listening = false;
     task::block_on(future::poll_fn(move |cx: &mut Context| {
-        // loop {
-        //     match stdin.try_poll_next_unpin(cx)? {
-        //         Poll::Ready(Some(line)) => swarm.floodsub.publish(&floodsub_topic, line.as_bytes()),
-        //         Poll::Ready(None) => panic!("Stdin closed"),
-        //         Poll::Pending => break
-        //     }
-        // }
+        loop {
+            match stdin.try_poll_next_unpin(cx)? {
+                Poll::Ready(Some(line)) => swarm.floodsub.publish(&floodsub_topic, line.as_bytes()),
+                Poll::Ready(None) => panic!("Stdin closed"),
+                Poll::Pending => break
+            }
+        }
         loop {
             match swarm.poll_next_unpin(cx) {
                 Poll::Ready(Some(event)) => println!("{:?}", event),
