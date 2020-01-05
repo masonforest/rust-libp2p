@@ -44,7 +44,7 @@ pub struct Floodsub<TSubstream> {
     events: VecDeque<NetworkBehaviourAction<FloodsubRpc, FloodsubEvent>>,
 
     /// Peer id of the local node. Used for the source of the messages that we publish.
-    local_peer_id: PeerId,
+    pub local_peer_id: PeerId,
 
     /// List of peers to send messages to.
     target_peers: FnvHashSet<PeerId>,
