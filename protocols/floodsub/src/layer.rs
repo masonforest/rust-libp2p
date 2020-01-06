@@ -44,7 +44,7 @@ pub struct Floodsub<TSubstream> {
     events: VecDeque<NetworkBehaviourAction<FloodsubRpc, FloodsubEvent>>,
 
     /// Peer id of the local node. Used for the source of the messages that we publish.
-    local_peer_id: PeerId,
+    pub local_peer_id: PeerId,
 
     /// List of peers to send messages to.
     target_peers: FnvHashSet<PeerId>,
@@ -244,6 +244,7 @@ where
     }
 
     fn inject_connected(&mut self, id: PeerId, _: ConnectedPoint) {
+        self.add_node_to_partial_view(id.clone());
         // We need to send our subscriptions to the newly-connected node.
         if self.target_peers.contains(&id) {
             for topic in self.subscribed_topics.iter() {

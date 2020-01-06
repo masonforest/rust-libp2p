@@ -58,7 +58,6 @@ use libp2p::{
     NetworkBehaviour,
     identity,
     floodsub::{self, Floodsub, FloodsubEvent},
-    mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess
 };
 use std::{error::Error, task::{Context, Poll}};
@@ -82,24 +81,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[derive(NetworkBehaviour)]
     struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
         floodsub: Floodsub<TSubstream>,
-        mdns: Mdns<TSubstream>,
-    }
-
-    impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour<TSubstream> {
-        fn inject_event(&mut self, event: MdnsEvent) {
-            match event {
-                MdnsEvent::Discovered(list) =>
-                    for (peer, _) in list {
-                        self.floodsub.add_node_to_partial_view(peer);
-                    }
-                MdnsEvent::Expired(list) =>
-                    for (peer, _) in list {
-                        if !self.mdns.has_node(&peer) {
-                            self.floodsub.remove_node_from_partial_view(&peer);
-                        }
-                    }
-            }
-        }
     }
 
     impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour<TSubstream> {
@@ -113,12 +94,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a Swarm to manage peers and events
     let mut swarm = {
-        let mdns = task::block_on(Mdns::new())?;
         let mut behaviour = MyBehaviour {
             floodsub: Floodsub::new(local_peer_id.clone()),
-            mdns
         };
 
+        if let Some(peer) = std::env::args().nth(2) {
+            behaviour.floodsub.add_node_to_partial_view(peer.parse().unwrap());
+        };
         behaviour.floodsub.subscribe(floodsub_topic.clone());
         Swarm::new(transport, behaviour, local_peer_id)
     };
