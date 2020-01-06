@@ -58,7 +58,7 @@ use libp2p::{
     NetworkBehaviour,
     identity,
     floodsub::{self, Floodsub, FloodsubEvent},
-    mdns::{Mdns, MdnsEvent},
+    // mdns::{Mdns, MdnsEvent},
     swarm::NetworkBehaviourEventProcess
 };
 use std::{error::Error, task::{Context, Poll}};
@@ -82,32 +82,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[derive(NetworkBehaviour)]
     struct MyBehaviour<TSubstream: AsyncRead + AsyncWrite> {
         floodsub: Floodsub<TSubstream>,
-        mdns: Mdns<TSubstream>,
-    }
-
-    impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<MdnsEvent> for MyBehaviour<TSubstream> {
-        fn inject_event(&mut self, event: MdnsEvent) {
-            match event {
-                MdnsEvent::Discovered(list) =>
-                    for (peer, _) in list {
-                        self.floodsub.add_node_to_partial_view(peer);
-                    }
-                MdnsEvent::Expired(list) =>
-                    for (peer, _) in list {
-                        if !self.mdns.has_node(&peer) {
-                            self.floodsub.remove_node_from_partial_view(&peer);
-                        }
-                    }
-            }
-        }
+        // mdns: Mdns<TSubstream>,
     }
 
     impl<TSubstream: AsyncRead + AsyncWrite> NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour<TSubstream> {
         // Called when `floodsub` produces an event.
         fn inject_event(&mut self, message: FloodsubEvent) {
-            if let FloodsubEvent::Message(message) = message {
-                println!("Received: '{:?}' from {:?}", String::from_utf8_lossy(&message.data), message.source);
+            match message {
+                FloodsubEvent::Message(message) => {
+                    println!("Received: '{:?}' from {:?}", String::from_utf8_lossy(&message.data), &message.source);
+                },
+                FloodsubEvent::Subscribed{peer_id, ..} => {
+                    // println!("adding");
+                    // self.floodsub.add_node_to_partial_view(peer_id);
+                },
+                FloodsubEvent::Unsubscribed{..} => ()
             }
+            // if let FloodsubEvent::Message(message) = message {
+            //     println!("Received: '{:?}' from {:?}", String::from_utf8_lossy(&message.data), &message.source);
+            //     // self.floodsub.add_node_to_partial_view(message.source);
+            // } else {
+            //     println!("other event {:?}", message);
+            // }
         }
     }
 
@@ -116,11 +112,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mdns = task::block_on(Mdns::new())?;
         let mut behaviour = MyBehaviour {
             floodsub: Floodsub::new(local_peer_id.clone()),
-            mdns
         };
 
         behaviour.floodsub.subscribe(floodsub_topic.clone());
-        Swarm::new(transport, behaviour, local_peer_id)
+        if let Some(peer) = std::env::args().nth(2) {
+            behaviour.floodsub.add_node_to_partial_view(peer.parse().unwrap());
+        } else {
+            println!("not a peeer");
+        };
+        Swarm::new(transport, behaviour, local_peer_id.clone())
     };
 
     // Reach out to another node if specified
@@ -138,7 +138,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Kick it off
     let mut listening = false;
-    task::block_on(future::poll_fn(move |cx: &mut Context| {
+    let local_peer_id2 = local_peer_id.clone();
+    tokio::run(futures::future::poll_fn(move || -> Result<_, ()> {
         loop {
             match stdin.try_poll_next_unpin(cx)? {
                 Poll::Ready(Some(line)) => swarm.floodsub.publish(&floodsub_topic, line.as_bytes()),
@@ -153,7 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Poll::Pending => {
                     if !listening {
                         if let Some(a) = Swarm::listeners(&swarm).next() {
-                            println!("Listening on {:?}", a);
+                            println!("Listening on {} {}", a, local_peer_id2.clone());
                             listening = true;
                         }
                     }

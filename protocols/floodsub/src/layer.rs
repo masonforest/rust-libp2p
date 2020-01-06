@@ -244,6 +244,7 @@ where
     }
 
     fn inject_connected(&mut self, id: PeerId, _: ConnectedPoint) {
+        self.add_node_to_partial_view(id.clone());
         // We need to send our subscriptions to the newly-connected node.
         if self.target_peers.contains(&id) {
             for topic in self.subscribed_topics.iter() {
