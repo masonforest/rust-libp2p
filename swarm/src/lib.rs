@@ -366,7 +366,7 @@ where TBehaviour: NetworkBehaviour<ProtocolsHandler = THandler>,
                     }
                 },
                 Poll::Ready(NetworkEvent::NodeClosed { conn_info, endpoint, .. }) => {
-                    this.behaviour.inject_disconnected(conn_info.peer_id(), endpoint);
+                    // this.behaviour.inject_disconnected(conn_info.peer_id(), endpoint);
                 },
                 Poll::Ready(NetworkEvent::Replaced { new_info, closed_endpoint, endpoint, .. }) => {
                     this.behaviour.inject_replaced(new_info.peer_id().clone(), closed_endpoint, endpoint);
