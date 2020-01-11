@@ -57,7 +57,7 @@ where
 
     fn upgrade_inbound(self, mut socket: upgrade::Negotiated<TSocket>, _: Self::Info) -> Self::Future {
         Box::pin(async move {
-            let packet = upgrade::read_one(&mut socket, 2048).await?;
+            let packet = upgrade::read_one(&mut socket, 5242880).await?;
             let mut rpc: rpc_proto::RPC = protobuf::parse_from_bytes(&packet)?;
 
             let mut messages = Vec::with_capacity(rpc.get_publish().len());
